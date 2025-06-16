@@ -1,6 +1,6 @@
 # 文件：config.yaml（请放置在项目根目录） """ # 这是配置文件，控制每个处理模块是否启用，以及它们的参数。 # 新手建议：通过修改这个文件来测试不同处理效果。 
  raw:   
-  path: "D:/Code/ISP_Framework/1920x1080.raw"  # 输入 RAW 图像路径   
+  path: "./1920x1080.raw"  # 输入 RAW 图像路径   
   width: 1920 
   height: 1080
   sensor_bit_depth: 10
