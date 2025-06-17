@@ -88,9 +88,9 @@
 
  tonemapping:
   enable: true
-  lift: 0.01
-  roll: 0.8
-  compress: 0.5
+  lift: 0.01  #暗部整体提亮,值越大，暗处越亮
+  roll: 0.8   #高光压制起始点，值越大，高光压得更早（整体压扁）
+  compress: 0.5  #高光压缩强度，值越大，，高光更平缓
  
 
 
