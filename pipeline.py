@@ -9,7 +9,7 @@ import numpy as np
 
 from raw_loader.raw_reader import read_raw
 # 导入所有 ISP 阶段模块，包括新增的 denoise 和 sharpen
-from stages import blc, lsc, wb, ccm, demosaic, denoise, sharpen, gamma 
+from stages import blc, lsc, wb, ccm, demosaic, denoise, sharpen, gamma, tonemapping 
 from utils.image_io import save_image_debug, save_image
 
 class ISPPipeline:
@@ -108,6 +108,10 @@ class ISPPipeline:
             # 伽马校正后是 0-1 范围的 RGB 浮点图像（非线性），保存时通常不缩放
             save_image_debug(rgb, os.path.join(debug_dir, 'step7_gamma.png'), scale=False)
 
+
+        if cfg.get('tonemapping', {}).get('enable', False):
+            rgb = tonemapping.apply(rgb, cfg['tonemapping'])
+            save_image_debug(rgb, os.path.join(debug_dir, 'step8_tonemapping.png'))
         # --- 新增模块 ---
 
         # Step 8: 锐化 (Sharpen)
@@ -118,7 +122,7 @@ class ISPPipeline:
             print(f"→ 锐化 输出最大值：{rgb.max():.4f}")
             print(f"→ 锐化 输出最小值：{rgb.min():.4f}")
             # 锐化后仍是 0-1 范围的 RGB 浮点图像
-            save_image_debug(rgb, os.path.join(debug_dir, 'step8_sharpen.png'), scale=False)
+            save_image_debug(rgb, os.path.join(debug_dir, 'step9_sharpen.png'), scale=False)
 
 
         # --- 新增模块：抖动 (Dithering) ---
