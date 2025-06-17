@@ -9,7 +9,7 @@ import numpy as np
 
 from raw_loader.raw_reader import read_raw
 # 导入所有 ISP 阶段模块，包括新增的 denoise 和 sharpen
-from stages import blc, lsc, wb, ccm, demosaic, denoise, sharpen, gamma, tonemapping 
+from stages import blc, lsc, wb, ccm, demosaic, denoise, sharpen, gamma, tonemapping, super_resolution 
 from utils.image_io import save_image_debug, save_image
 
 class ISPPipeline:
@@ -97,8 +97,8 @@ class ISPPipeline:
             # CCM 后仍是 0-1 范围的 RGB 浮点图像
             save_image_debug(rgb, os.path.join(debug_dir, 'step6_ccm.png'), scale=False)
 
-        # --- 原来的 Step 6 变为 Step 7 ---
-
+        
+        
         # Step 7: 伽马校正 (Gamma Correction)
         # 调整图像亮度，使其在显示器上看起来更自然，符合人眼的感知
         if cfg['gamma']['enable']:
@@ -109,12 +109,14 @@ class ISPPipeline:
             save_image_debug(rgb, os.path.join(debug_dir, 'step7_gamma.png'), scale=False)
 
 
+        # Step 8:
         if cfg.get('tonemapping', {}).get('enable', False):
             rgb = tonemapping.apply(rgb, cfg['tonemapping'])
             save_image_debug(rgb, os.path.join(debug_dir, 'step8_tonemapping.png'))
-        # --- 新增模块 ---
+        
+   
 
-        # Step 8: 锐化 (Sharpen)
+        # Step 9: 锐化 (Sharpen)
         # 增强图像中的边缘和细节，使图像更清晰
         # 通常放在伽马校正之后
         if cfg['sharpen']['enable']:
@@ -124,7 +126,20 @@ class ISPPipeline:
             # 锐化后仍是 0-1 范围的 RGB 浮点图像
             save_image_debug(rgb, os.path.join(debug_dir, 'step9_sharpen.png'), scale=False)
 
-
+        
+        
+        # === Step 10: 超分辨 (Super Resolution) ===
+        # 将图像放大到更高分辨率，通常放在 ISP 流程的末尾。
+        # 注意：这里假设 super_resolution 模块被导入且配置已在 config.yaml 中定义。
+        if 'super_resolution' in cfg and cfg['super_resolution'].get('enable', False):
+            rgb = super_resolution.apply(rgb, cfg['super_resolution'])
+            print(f"→ 超分辨 输出尺寸：{rgb.shape}")
+            print(f"→ 超分辨 输出最大值：{rgb.max():.4f}")
+            print(f"→ 超分辨 输出最小值：{rgb.min():.4f}")
+            save_image_debug(rgb, os.path.join(debug_dir, 'step10_super_resolution.png'), scale=False)
+      
+        
+        
         # --- 新增模块：抖动 (Dithering) ---
         # 抖动用于缓解将浮点数图像转换为 8 位整数时可能出现的量化伪影（断层）
         # 它通过在像素值中引入微小的随机噪声，使颜色过渡看起来更平滑。
