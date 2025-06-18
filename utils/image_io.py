@@ -26,5 +26,6 @@ def save_image_debug(img, path, scale=False):
 
 # save_image 函数保持不变，因为它已经按照期望工作
 def save_image(img, path):
+    #img = np.clip(img, 0, 1)
     img = np.clip(img, 0, 255).astype(np.uint8)
     cv2.imwrite(path, img)

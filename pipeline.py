@@ -9,7 +9,8 @@ import numpy as np
 
 from raw_loader.raw_reader import read_raw
 # 导入所有 ISP 阶段模块，包括新增的 denoise 和 sharpen
-from stages import blc, lsc, wb, ccm, demosaic, denoise, sharpen, gamma, tonemapping, super_resolution 
+from stages import fisheye_mask,denoise_clip,blc, lsc, wb, ccm, demosaic, \
+    denoise,chroma_denoise, sharpen, gamma, tonemapping, super_resolution 
 from utils.image_io import save_image_debug, save_image
 
 class ISPPipeline:
@@ -34,7 +35,15 @@ class ISPPipeline:
         # 创建调试图像保存目录
         debug_dir = cfg['output'].get('debug_dir', 'output')
         os.makedirs(debug_dir, exist_ok=True)
+        
+        
+        # Step 0: Fisheye Mask
+        if cfg.get('fisheye_mask', {}).get('enable', False):
+          raw = fisheye_mask.apply(raw, cfg['fisheye_mask'])
+          save_image_debug(raw, os.path.join(debug_dir, 'step0_mask.png'), scale=True)
 
+
+    
         # Step 1: 黑电平校正 (Black Level Correction - BLC)
         # 移除图像中的暗电流和传感器固有的零点偏差
         if cfg['blc']['enable']:
@@ -42,6 +51,12 @@ class ISPPipeline:
             # BLC 后仍然是 RAW 数据，通常是 uint16 或浮点，保存时需要缩放以便查看
             save_image_debug(raw, os.path.join(debug_dir, 'step1_blc.png'), scale=True) 
 
+
+        # Step 1.5: 暗部 Clip 保底去噪
+        if cfg.get('denoise_clip', {}).get('enable', False):
+          raw = denoise_clip.apply(raw, cfg['denoise_clip'])
+          save_image_debug(raw, os.path.join(debug_dir, 'step1.5_denoise_clip.png'), scale=True) 
+          
         # Step 2: 镜头阴影校正 (Lens Shading Correction - LSC)
         # 补偿镜头造成的图像边缘变暗现象
         if cfg['lsc']['enable']:
@@ -98,6 +113,11 @@ class ISPPipeline:
             save_image_debug(rgb, os.path.join(debug_dir, 'step6_ccm.png'), scale=False)
 
         
+        # Step: Chroma Denoise
+        if cfg.get('chroma_denoise', {}).get('enable', False):
+         rgb = chroma_denoise.apply(rgb, cfg['chroma_denoise'])
+         save_image_debug(rgb, os.path.join(debug_dir, 'step7_chroma_denoise.png'))
+
         
         # Step 7: 伽马校正 (Gamma Correction)
         # 调整图像亮度，使其在显示器上看起来更自然，符合人眼的感知
@@ -106,13 +126,13 @@ class ISPPipeline:
             print(f"→ 伽马校正 输出最大值：{rgb.max():.4f}")
             print(f"→ 伽马校正 输出最小值：{rgb.min():.4f}")
             # 伽马校正后是 0-1 范围的 RGB 浮点图像（非线性），保存时通常不缩放
-            save_image_debug(rgb, os.path.join(debug_dir, 'step7_gamma.png'), scale=False)
+            save_image_debug(rgb, os.path.join(debug_dir, 'step8_gamma.png'), scale=False)
 
 
         # Step 8:
         if cfg.get('tonemapping', {}).get('enable', False):
             rgb = tonemapping.apply(rgb, cfg['tonemapping'])
-            save_image_debug(rgb, os.path.join(debug_dir, 'step8_tonemapping.png'))
+            save_image_debug(rgb, os.path.join(debug_dir, 'step9_tonemapping.png'))
         
    
 
@@ -124,7 +144,7 @@ class ISPPipeline:
             print(f"→ 锐化 输出最大值：{rgb.max():.4f}")
             print(f"→ 锐化 输出最小值：{rgb.min():.4f}")
             # 锐化后仍是 0-1 范围的 RGB 浮点图像
-            save_image_debug(rgb, os.path.join(debug_dir, 'step9_sharpen.png'), scale=False)
+            save_image_debug(rgb, os.path.join(debug_dir, 'step10_sharpen.png'), scale=False)
 
         
         
@@ -136,7 +156,7 @@ class ISPPipeline:
             print(f"→ 超分辨 输出尺寸：{rgb.shape}")
             print(f"→ 超分辨 输出最大值：{rgb.max():.4f}")
             print(f"→ 超分辨 输出最小值：{rgb.min():.4f}")
-            save_image_debug(rgb, os.path.join(debug_dir, 'step10_super_resolution.png'), scale=False)
+            save_image_debug(rgb, os.path.join(debug_dir, 'step11_super_resolution.png'), scale=False)
       
         
         
