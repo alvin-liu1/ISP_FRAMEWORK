@@ -1,11 +1,11 @@
 # 文件：config.yaml（请放置在项目根目录） """ # 这是配置文件，控制每个处理模块是否启用，以及它们的参数。 # 新手建议：通过修改这个文件来测试不同处理效果。 
  raw:   
-  path: "./2912x2912.raw"  # 输入 RAW 图像路径   
-  width: 2912
-  height: 2912
+  path: "./RGGB.raw"  # 输入 RAW 图像路径   
+  width: 2048
+  height: 2048
   sensor_bit_depth: 10
   raw_to_16bit_scale_factor: 64 # 例如，如果你的 RAW 是 10-bit，这里填 64
-  bayer_pattern: "rggb" 
+  
 
 
  fisheye_mask:
@@ -48,16 +48,17 @@
   # 如果是 12bit RAW 左移 4bit 存入 uint16，那么这里就是 4095 * (2**4) = 65520
   # 如果是标准的 16bit RAW，那么就是 65535
    # 请根据你的原始 RAW 数据的实际位深来设置此值。
+  bayer_pattern: "bggr"  # Bayer 模式，常见的有 'bggr', 'gbrg', 'grbg', 'rggb'
 
 
 
  wb:   # 白平衡（White Balance）   
   enable: true
   # White balance method: 'manual', 'gray_world', 'max_rgb'
-  method: manual 
+  method: gray_world 
   # 如果 method 是 'manual'，则使用下面的 gains
   gains: [1.5, 1.0, 1.3] 
-  # 如果是 'gray_world' 或 'max_rgb'，这些 gains 会被覆盖
+  # 如果是 'gray_world' 或 'max_rgb'，这些 gains 会被覆盖git
   # --- 添加这些用于亮度筛选的新参数 ---
   # 用于白平衡计算的像素最小亮度阈值
   # 平均RGB值低于此值的像素将被排除 (例如，暗部噪声)
@@ -69,7 +70,7 @@
 
 
  denoise:  #去噪
-  enable: true
+  enable: false
   # 去噪方法：'gaussian', 'bilateral', 'median', 'nl_means'
   method:  nl_means 
   # 高斯模糊和中值滤波参数
@@ -90,9 +91,9 @@
 
  ccm:  # 颜色矩阵（Color Correction Matrix）   
   enable: true   
-  matrix: [[1.8, -0.4, -0.4],   # R_out = 1.8*R_in - 0.4*G_in - 0.4*B_in  (和为 1.0)
+  matrix: [[1.9, -0.5, -0.4],   # R_out = 1.8*R_in - 0.4*G_in - 0.4*B_in  (和为 1.0)
          [-0.3, 1.6, -0.3],   # G_out = -0.3*R_in + 1.6*G_in - 0.3*B_in (和为 1.0)
-         [-0.2, -0.5, 1.7]] 
+         [-0.2, -0.6, 1.8]] 
 
  
  chroma_denoise: # 色彩去噪
