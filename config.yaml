@@ -1,6 +1,7 @@
 # 文件：config.yaml（请放置在项目根目录） """ # 这是配置文件，控制每个处理模块是否启用，以及它们的参数。 # 新手建议：通过修改这个文件来测试不同处理效果。 
  raw:   
-  path: "./RGGB.raw"  # 输入 RAW 图像路径   
+  #path: "./BGGR.raw"  # 输入 RAW 图像路径 
+  input_dir: "D:\\Code\\ISP_Framework\\image"
   width: 2048
   height: 2048
   sensor_bit_depth: 10
@@ -23,7 +24,7 @@
 
 
  lsc:
-  enable: true
+  enable: false
   # LSC 模型类型：
   # 'linear': 简单的线性增益 (1 + strength * distance)
   # 'quadratic': 二次函数增益 (1 + strength * distance^2) - 推荐，更平滑
@@ -42,13 +43,14 @@
  demosaic: #去马赛克
   enable: true   
   method: "opencv" 
-  # 这个值至关重要！它应该是你的 RAW 传感器数据在被读取并转换为 uint16 后，
+   #这个值至关重要！它应该是你的 RAW 传感器数据在被读取并转换为 uint16 后，
   # 能够达到的最大理论值。
   # 如果是 10bit RAW 左移 6bit 存入 uint16，那么这里就是 1023 * (2**6) = 65472
   # 如果是 12bit RAW 左移 4bit 存入 uint16，那么这里就是 4095 * (2**4) = 65520
   # 如果是标准的 16bit RAW，那么就是 65535
    # 请根据你的原始 RAW 数据的实际位深来设置此值。
-  bayer_pattern: "bggr"  # Bayer 模式，常见的有 'bggr', 'gbrg', 'grbg', 'rggb'
+  bayer_pattern: "rggb"  # Bayer 模式，常见的有 'bggr', 'gbrg', 'grbg', 'rggb'
+
 
 
 
@@ -135,9 +137,8 @@
 
 
 
-
  sharpen:  #锐化
-  enable: true
+  enable: false
   # 锐化方法：'unsharp_masking' (目前只实现了这一种)
   method: unsharp_masking 
   # 非锐化掩蔽参数
@@ -160,3 +161,4 @@
   path: "output/result.png"      # 最终输出图像路径   
   debug_dir: "output/"           # 每个步骤的中间图保存目录 """
   dither_strength: 0.5 # 抖动强度，通常在 0.5 到 1.0 之间尝试。设置为 0 则禁用抖动。
+
