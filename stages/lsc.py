@@ -7,17 +7,16 @@ from scipy.ndimage import gaussian_filter
 def apply(raw, config):
     print(f"LSC输入: dtype={raw.dtype}, min={raw.min()}, max={raw.max()}")
     
+    # 获取位深配置
+    bit_depth_cfg = config.get('bit_depth_management', {})
+    processing_bits = bit_depth_cfg.get('raw_processing', 16)
+    max_value = (2**processing_bits) - 1
+    
     h, w = raw.shape
     model_type = config.get("model_type", "cosine_fourth")
     strength = config.get("strength", 0.3)
     
-    # 获取位深配置
-    bit_depth_cfg = config.get('bit_depth_management', {})
-    input_bit_depth = bit_depth_cfg.get('blc_output', 12)  # 来自BLC的12bit
-    output_bit_depth = bit_depth_cfg.get('lsc_output', 12)  # 保持12bit
-    max_value = (2**input_bit_depth) - 1  # 4095 for 12-bit
-    
-    # 计算增益图
+    # 在16bit精度下处理，避免截断误差
     y, x = np.indices((h, w), dtype=np.float32)
     center_y, center_x = h / 2.0, w / 2.0
     
@@ -43,12 +42,10 @@ def apply(raw, config):
     gain_map = 1.0 + (gain_map - 1.0) * strength
     
     # 应用LSC校正
-    corrected_raw = raw * gain_map
+    corrected = raw * gain_map
     
-    # 保持在12bit范围内
-    corrected_raw = np.clip(corrected_raw, 0, max_value)
+    # 确保不超出16bit范围
+    corrected = np.clip(corrected, 0, max_value)
     
-    print(f"LSC: 保持{output_bit_depth}bit, 最大值: {max_value}")
-    print(f"LSC: 输出范围 [{corrected_raw.min():.1f}, {corrected_raw.max():.1f}]")
-    
-    return corrected_raw.astype(np.float32)
+    print(f"LSC: 16bit处理完成，输出范围 [{corrected.min():.1f}, {corrected.max():.1f}]")
+    return corrected.astype(np.float32)

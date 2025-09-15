@@ -31,8 +31,13 @@ lsc:
 
 demosaic:
   enable: true
-  method: "opencv_ea"
-  bayer_pattern: "bggr"
+  method: "frequency_domain"  # 试试频域抗摩尔纹
+  bayer_pattern: "rggb"
+  
+  # 自定义算法参数
+  edge_threshold: 50
+  gradient_weight: 0.7
+  preserve_edges: true
 
 wb:
   enable: true
@@ -105,12 +110,33 @@ color_space_conversion:
   output_space: "rec2020"
   gamut_mapping: "compress"
 
-# 位深管理配置
+# 新增模块配置
+dpc:
+  enable: true
+  method: "median"
+  threshold: 5.0  # 适中的阈值
+
+exposure_compensation:
+  enable: true
+  mode: "auto"  # auto, manual
+  target_percentile: 85
+  target_brightness: 0.6
+  manual_gain: 1.0
+  highlight_threshold: 0.95
+  highlight_compression: 0.7
+
+shadow_highlight:
+  enable: false
+  shadow_amount: 0    # -100 to +100
+  highlight_amount: 0 # -100 to +100
+
+# 位深管理
 bit_depth_management:
-  raw_input: 10          # 传感器原生10bit
-  blc_output: 12         # BLC后扩展到12bit
-  lsc_output: 12         # LSC保持12bit
-  demosaic_output: "float32"  # Demosaic转浮点
-  wb_output: "float32"   # WB HDR处理
-  ccm_output: "float32"  # CCM矩阵运算
-  final_output: "float32" # 最终0-1范围
+  sensor_native: 10
+  raw_processing: 16
+  linear_hdr: "float32"
+  hdr_range: [0.0, 8.0]
+  display_ready: "float32"
+  final_output: 8
+  enable_dithering: true
+  noise_floor_lsb: 1.5

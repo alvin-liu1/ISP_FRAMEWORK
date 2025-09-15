@@ -13,7 +13,7 @@ from raw_loader.raw_reader import read_raw
 # 导入所有 ISP 阶段模块，包括新增的 denoise 和 sharpen
 from stages import fisheye_mask,denoise_clip,blc, lsc, wb, ccm, demosaic, \
     denoise,chroma_denoise, sharpen, gamma, tonemapping, super_resolution, \
-    noise_estimation, color_space
+    noise_estimation, color_space, dpc
 from utils.image_io import save_image_debug, save_image
 
 def log_data_range(rgb, step_name):
@@ -81,107 +81,122 @@ class ISPPipeline:
 
             # --- ISP 流程开始 ---
             
-            # Step 0: 鱼眼掩膜 (Fisheye Mask) - 可选预处理
+            # Step 0: 坏点校正 (Dead Pixel Correction - DPC) - 在BLC之前处理
+            if cfg.get('dpc', {}).get('enable', False):
+                dpc_cfg = cfg['dpc'].copy()
+                dpc_cfg['bayer_pattern'] = cfg['demosaic'].get('bayer_pattern', 'rggb')
+                raw = dpc.apply(raw, dpc_cfg)
+                save_image_debug(raw, os.path.join(current_debug_dir, 'step0_dpc.png'), scale=True)
+            
+            # Step 1: 鱼眼掩膜 (Fisheye Mask) - 可选预处理
             if cfg.get('fisheye_mask', {}).get('enable', False):
                 raw = fisheye_mask.apply(raw, cfg['fisheye_mask'])
-                save_image_debug(raw, os.path.join(current_debug_dir, 'step0_fisheye_mask.png'), scale=True)
+                save_image_debug(raw, os.path.join(current_debug_dir, 'step1_fisheye_mask.png'), scale=True)
 
-            # Step 1: 黑电平校正 (Black Level Correction - BLC)
+            # 确保所有模块都能访问位深配置
+            bit_depth_cfg = cfg.get('bit_depth_management', {})
+            
+            # Step 2: 黑电平校正 (Black Level Correction - BLC)
             if cfg['blc']['enable']:
-                raw = blc.apply(raw, cfg['blc'])
+                blc_cfg = cfg['blc'].copy()
+                blc_cfg['bit_depth_management'] = bit_depth_cfg
+                raw = blc.apply(raw, blc_cfg)
                 blc_max = raw.max()  # 记录BLC后的最大值
-                save_image_debug(raw, os.path.join(current_debug_dir, 'step1_blc.png'), scale=True) 
-
-            # Step 2: 暗部 Clip 保底去噪 (可选)
+                save_image_debug(raw, os.path.join(current_debug_dir, 'step2_blc.png'), scale=True)
+            
+            # Step 3: 暗部 Clip 保底去噪 (可选)
             if cfg.get('denoise_clip', {}).get('enable', False):
                 raw = denoise_clip.apply(raw, cfg['denoise_clip'])
-                save_image_debug(raw, os.path.join(current_debug_dir, 'step2_denoise_clip.png'), scale=True) 
+                save_image_debug(raw, os.path.join(current_debug_dir, 'step3_denoise_clip.png'), scale=True) 
                 
-            # Step 3: 镜头阴影校正 (Lens Shading Correction - LSC)
+            # Step 4: 镜头阴影校正 (Lens Shading Correction - LSC)
             if cfg['lsc']['enable']:
                 lsc_cfg = cfg['lsc'].copy()
                 lsc_cfg['sensor_bit_depth'] = cfg['raw'].get('sensor_bit_depth', 10)
+                lsc_cfg['bit_depth_management'] = bit_depth_cfg
                 raw = lsc.apply(raw, lsc_cfg)
                 # 不使用reference_max，让LSC图像用自己的最大值缩放
-                save_image_debug(raw, os.path.join(current_debug_dir, 'step3_lsc.png'), scale=True)
+                save_image_debug(raw, os.path.join(current_debug_dir, 'step4_lsc.png'), scale=True)
 
-            # Step 4: 噪声估计 (Noise Estimation) - 为后续自适应处理提供信息
+            # Step 5: 噪声估计 (Noise Estimation) - 为后续自适应处理提供信息
             if cfg.get('noise_estimation', {}).get('enable', False):
                 raw = noise_estimation.apply(raw, cfg)
-                save_image_debug(raw, os.path.join(current_debug_dir, 'step4_noise_estimation.png'), scale=True)
+                save_image_debug(raw, os.path.join(current_debug_dir, 'step5_noise_estimation.png'), scale=True)
                 print(f"→ 噪声估计完成")
 
-            # Step 5: 去马赛克 (Demosaic) - 从RAW转换为RGB
+            # Step 6: 去马赛克 (Demosaic) - 从RAW转换为RGB
             if cfg['demosaic']['enable']:
                 demosaic_cfg = cfg['demosaic'].copy()
+                demosaic_cfg['bit_depth_management'] = bit_depth_cfg
                 if demosaic_cfg.get('method') == 'rawpy' or demosaic_cfg.get('method') == 'auto':
                     demosaic_cfg['raw_file_path'] = raw_file_path
                 
                 rgb = demosaic.apply(raw, demosaic_cfg)
-                save_image_debug(rgb, os.path.join(current_debug_dir, 'step5_demosaic.png'), scale=False)
+                save_image_debug(rgb, os.path.join(current_debug_dir, 'step6_demosaic.png'), scale=False)
             else:
                 raise Exception("去马赛克（Demosaic）模块必须启用才能获得 RGB 图像。")
 
-            # Step 6: 色彩空间转换 (Color Space Conversion) - 可选
+            # Step 7: 色彩空间转换 (Color Space Conversion) - 可选
             if cfg.get('color_space_conversion', {}).get('enable', False):
                 rgb = color_space.apply(rgb, cfg['color_space_conversion'])
-                save_image_debug(rgb, os.path.join(current_debug_dir, 'step6_color_space.png'), scale=False)
+                save_image_debug(rgb, os.path.join(current_debug_dir, 'step7_color_space.png'), scale=False)
 
-            # Step 7: 白平衡 (保持HDR范围)
+            # Step 8: 白平衡 (保持HDR范围)
             if cfg['wb']['enable']:
                 rgb = wb.apply(rgb, cfg['wb'])
                 print(f"→ WB 输出范围：{rgb.min():.3f} - {rgb.max():.3f}")
-                save_image_debug(rgb, os.path.join(current_debug_dir, 'step7_wb.png'), scale=False)
+                save_image_debug(rgb, os.path.join(current_debug_dir, 'step8_wb.png'), scale=False)
 
-            # Step 8: 去噪 (在线性HDR空间)
+            # Step 9: 去噪 (在线性HDR空间)
             if cfg['denoise']['enable']:
                 rgb = denoise.apply(rgb, cfg['denoise'])
-                save_image_debug(rgb, os.path.join(current_debug_dir, 'step8_denoise.png'), scale=False)
+                save_image_debug(rgb, os.path.join(current_debug_dir, 'step9_denoise.png'), scale=False)
 
-            # Step 9: CCM (保持HDR范围)
+            # Step 10: CCM (保持HDR范围)
             if cfg['ccm']['enable']:
                 rgb = ccm.apply(rgb, cfg['ccm'])
                 print(f"→ CCM 输出范围：{rgb.min():.3f} - {rgb.max():.3f}")
-                save_image_debug(rgb, os.path.join(current_debug_dir, 'step9_ccm.png'), scale=False)
+                save_image_debug(rgb, os.path.join(current_debug_dir, 'step10_ccm.png'), scale=False)
 
-            # Step 10: Tone Mapping (HDR → LDR，线性空间)
+            # Step 11: Tone Mapping (HDR → LDR，线性空间)
             if cfg.get('tonemapping', {}).get('enable', False):
                 rgb = tonemapping.apply(rgb, cfg['tonemapping'])
                 print(f"→ Tone Mapping 输出范围：{rgb.min():.3f} - {rgb.max():.3f}")
-                save_image_debug(rgb, os.path.join(current_debug_dir, 'step10_tonemapping.png'), scale=False)
+                save_image_debug(rgb, os.path.join(current_debug_dir, 'step11_tonemapping.png'), scale=False)
 
-            # Step 11: Gamma (线性 → 非线性，0-1范围)
+            # Step 12: Gamma (线性 → 非线性，0-1范围)
             if cfg['gamma']['enable']:
                 rgb = gamma.apply(rgb, cfg['gamma'])
                 print(f"→ Gamma 输出范围：{rgb.min():.3f} - {rgb.max():.3f}")
-                save_image_debug(rgb, os.path.join(current_debug_dir, 'step11_gamma.png'), scale=False)
+                save_image_debug(rgb, os.path.join(current_debug_dir, 'step12_gamma.png'), scale=False)
 
-            # Step 12: 色度去噪 (Chroma Denoising) - 针对色彩噪声
+            # Step 13: 色度去噪 (Chroma Denoising) - 针对色彩噪声
             if cfg.get('chroma_denoise', {}).get('enable', False):
                 rgb = chroma_denoise.apply(rgb, cfg['chroma_denoise'])
-                save_image_debug(rgb, os.path.join(current_debug_dir, 'step12_chroma_denoise.png'), scale=False)
+                save_image_debug(rgb, os.path.join(current_debug_dir, 'step13_chroma_denoise.png'), scale=False)
 
-            # Step 13: 锐化 (Sharpen)
+            # Step 14: 锐化 (Sharpen)
             if cfg['sharpen']['enable']:
                 rgb = sharpen.apply(rgb, cfg['sharpen'])
                 print(f"→ 锐化 输出最大值：{rgb.max():.4f}")
                 print(f"→ 锐化 输出最小值：{rgb.min():.4f}")
-                save_image_debug(rgb, os.path.join(current_debug_dir, 'step13_sharpen.png'), scale=False)
+                save_image_debug(rgb, os.path.join(current_debug_dir, 'step14_sharpen.png'), scale=False)
             
-            # Step 14: 超分辨率 (Super Resolution)
+            # Step 15: 超分辨率 (Super Resolution)
             if 'super_resolution' in cfg and cfg['super_resolution'].get('enable', False):
                 rgb = super_resolution.apply(rgb, cfg['super_resolution'])
                 print(f"→ 超分辨 输出尺寸：{rgb.shape}")
                 print(f"→ 超分辨 输出最大值：{rgb.max():.4f}")
                 print(f"→ 超分辨 输出最小值：{rgb.min():.4f}")
-                save_image_debug(rgb, os.path.join(current_debug_dir, 'step14_super_resolution.png'), scale=False)
+                save_image_debug(rgb, os.path.join(current_debug_dir, 'step15_super_resolution.png'), scale=False)
             
-            # Step 15: 抖动 (Dithering) - 最终输出前的处理
+            # Step 16: 抖动 (Dithering) - 最终输出前的处理
             dither_strength = cfg['output'].get('dither_strength', 0.5)
             if dither_strength > 0:
                 noise = (np.random.rand(*rgb.shape).astype(np.float32) - 0.5) * dither_strength * (1.0 / 255.0)
                 rgb_dithered = rgb + noise
                 print(f"→ 应用抖动，强度：{dither_strength}")
+                save_image_debug(rgb_dithered, os.path.join(current_debug_dir, 'step16_dithering.png'), scale=False)
             else:
                 rgb_dithered = rgb
 
