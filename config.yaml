@@ -1,142 +1,140 @@
-# 文件：config.yaml（请放置在项目根目录）
-# 这是配置文件，控制每个处理模块是否启用，以及它们的参数。
-# 新手建议：通过修改这个文件来测试不同处理效果。
-
-raw:   
-  input_dir: "D:\\Code\\ISP_Framework\\image"
-  width: 2048
-  height: 2048
-  sensor_bit_depth: 10
-  raw_to_16bit_scale_factor: 64
-
-fisheye_mask:
-  enable: false
-  center: [1456, 1456]
-  radius: 1456
-
+bit_depth_management:
+  display_ready: float32
+  enable_dithering: true
+  final_output: 8
+  hdr_range:
+  - 0.0
+  - 8.0
+  linear_hdr: float32
+  noise_floor_lsb: 1.5
+  raw_processing: 16
+  sensor_native: 10
 blc:
-  enable: true 
-  black_level: 64 
-
-denoise_clip:
-  enable: false
-  threshold: 10
-
-lsc:
+  black_level: 64.0
   enable: true
-  model_type: "cosine_fourth"
-  strength: 0.3
-  pixel_size_um: 1.4
-  focal_length_mm: 4.0
-
-demosaic:
-  enable: true
-  method: "frequency_domain"  # 试试频域抗摩尔纹
-  bayer_pattern: "rggb"
-  
-  # 自定义算法参数
-  edge_threshold: 50
-  gradient_weight: 0.7
-  preserve_edges: true
-
-wb:
-  enable: true
-  method: "gray_world"  # 可选: "manual", "gray_world", "white_patch"
-  gains: [1.5, 1.0, 1.3]  # manual模式下的增益
-  wb_min_luminance_threshold: 0.05  # gray_world最小亮度阈值
-  wb_max_luminance_threshold: 0.99  # gray_world最大亮度阈值
-  max_gain: 3.0  # 最大增益限制
-  min_gain: 0.3  # 最小增益限制
-  white_patch_percentile: 99.5  # white_patch算法的百分位数
-
-denoise:
-  enable: false  # 完全禁用去噪
-
 ccm:
-  enable: true   
-  matrix: [[1.2, -0.1, -0.1],
-           [-0.05, 1.2, -0.15],   
-           [0.0, -0.1, 1.1]]
-  
+  enable: true
   highlight_threshold: 0.7
-  saturation_boost: 1.8          # 从1.3提高到1.8
-
+  matrix:
+  - - 1.2
+    - -0.1
+    - -0.1
+  - - -0.05
+    - 1.2
+    - -0.15
+  - - 0.0
+    - -0.1
+    - 1.1
+  saturation_boost: 1.8
 chroma_denoise:
+  chroma_strength: 0.7
   enable: false
   luma_threshold: 0.2
-  chroma_strength: 0.7
-  
-gamma:
-  enable: true   
-  value: 2.2
-  curve_type: "s_curve"
-  midtone_boost: 0.05           # 降低到0.05，避免过度
-
-tonemapping:
-  enable: true 
-  lift: 0.1           # 提高lift，提亮暗部
-  roll: 0.8           # 提高roll，减少压缩
-  compress: 0.45      # 降低compress，减少压缩强度
-  contrast: 1.1       # 增加对比度
-  brightness: 1.05    # 轻微提亮
-
-sharpen:
-  enable: false
-  method: "unsharp_masking"
-  blur_kernel_size: 3
-  strength: 1.5
-
-super_resolution:
-  enable: false
-  scale_factor: 2.0
-  upscale_method: "bicubic"
-  sharpen_enable: true
-  sharpen_amount: 0.8
-  sharpen_radius: 1.0
-
-output:   
-  path: "output/result.png"
-  output_dir: "output/results/"
-  debug_dir: "output/debug_steps/"
-  dither_strength: 0.5
-
-noise_estimation:
-  enable: false
-  dark_threshold: 0.1
-
+  strength: 0.8
+  threshold: 0.1
 color_space_conversion:
   enable: false
-  input_space: "sRGB"
-  output_space: "rec2020"
-  gamut_mapping: "compress"
-
-# 新增模块配置
+  gamut_mapping: compress
+  input_space: sRGB
+  output_space: rec2020
+demosaic:
+  bayer_pattern: rggb
+  edge_threshold: 50
+  enable: true
+  gradient_weight: 0.7
+  method: frequency_domain
+  preserve_edges: true
+denoise:
+  enable: false
+  preserve_edges: true
+  strength: 1.0
+denoise_clip:
+  clip_threshold: 0.95
+  enable: false
+  threshold: 10
 dpc:
   enable: true
-  method: "median"
-  threshold: 5.0  # 适中的阈值
-
+  method: median
+  threshold: 5.0
 exposure_compensation:
-  enable: true
-  mode: "auto"  # auto, manual
-  target_percentile: 85
-  target_brightness: 0.6
-  manual_gain: 1.0
-  highlight_threshold: 0.95
+  enable: false
   highlight_compression: 0.7
-
+  highlight_threshold: 0.95
+  manual_gain: 1.0
+  mode: auto
+  target_brightness: 0.6
+  target_percentile: 85
+fisheye_mask:
+  center: '[1456, 1456]'
+  enable: false
+  radius: 1456
+gamma:
+  curve_type: s_curve
+  enable: true
+  gamma: 2.2
+  midtone_boost: 0.05
+  value: 2.2
+lsc:
+  enable: true
+  focal_length_mm: 4.0
+  model_type: cosine_fourth
+  pixel_size_um: 1.4
+  strength: 0.3
+noise_estimation:
+  dark_threshold: 0.1
+  enable: false
+output:
+  debug_dir: D:/Code/ISP_Framework/image\debug
+  dither_strength: 0.5
+  output_dir: D:/Code/ISP_Framework/image\output
+  path: output/result.png
+raw:
+  height: 2048
+  input_dir: D:/Code/ISP_Framework/image
+  raw_to_16bit_scale_factor: 64
+  sensor_bit_depth: 10
+  width: 2048
 shadow_highlight:
   enable: false
-  shadow_amount: 0    # -100 to +100
-  highlight_amount: 0 # -100 to +100
-
-# 位深管理
-bit_depth_management:
-  sensor_native: 10
-  raw_processing: 16
-  linear_hdr: "float32"
-  hdr_range: [0.0, 8.0]
-  display_ready: "float32"
-  final_output: 8
-  enable_dithering: true
-  noise_floor_lsb: 1.5
+  highlight_amount: 0
+  highlight_roll: 0.8
+  shadow_amount: 0
+  shadow_lift: 0.1
+sharpen:
+  blur_kernel_size: 3
+  enable: false
+  method: unsharp_masking
+  radius: 1.0
+  strength: 1.5
+  threshold: 0.1
+super_resolution:
+  enable: false
+  method: bicubic
+  scale_factor: 2.0
+  sharpen_amount: 0.8
+  sharpen_enable: true
+  sharpen_radius: 1.0
+  upscale_method: bicubic
+tonemapping:
+  brightness: 1.05
+  compress: 0.45
+  contrast: 1.1
+  enable: true
+  lift: 0.1
+  method: reinhard
+  roll: 0.8
+wb:
+  b_gain: 1.0
+  enable: true
+  g_gain: 1.0
+  gains:
+  - 1.5
+  - 1.0
+  - 1.3
+  max_gain: 3.0
+  method: gray_world
+  min_gain: 0.3
+  r_gain: 1.0
+  wb_max_luminance_threshold: 0.99
+  wb_min_luminance_threshold: 0.05
+  white_patch_percentile: 99.5
