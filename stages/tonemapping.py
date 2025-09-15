@@ -77,5 +77,15 @@ def apply(rgb, config):
     # 将亮度调整因子应用到每个 RGB 通道
     rgb_tonemapped = rgb * np.stack([scale_factor, scale_factor, scale_factor], axis=-1)
 
-    # 最终裁剪到 0-1 范围，以适应标准的显示设备
-    return np.clip(rgb_tonemapped, 0, 1)
+    # 修改：不要过早裁剪，保留一定的超出范围
+    preserve_headroom = config.get("preserve_headroom", False)
+    if preserve_headroom:
+        # 软裁剪：保留一些超出1.0的值，让后续Gamma处理
+        max_value = config.get("max_output_value", 1.2)
+        rgb_tonemapped = np.clip(rgb_tonemapped, 0, max_value)
+        print(f"Tonemapping: 保留headroom，最大值: {max_value}")
+    else:
+        # 原始硬裁剪
+        rgb_tonemapped = np.clip(rgb_tonemapped, 0, 1)
+    
+    return rgb_tonemapped

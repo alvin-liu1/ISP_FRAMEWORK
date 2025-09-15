@@ -10,15 +10,38 @@ def apply(rgb, config):
     # 确保输入 rgb 是 0-1 范围的 float32
     rgb = np.clip(rgb, 0, 1).astype(np.float32)
 
-    denoise_method = config.get("method", "gaussian") # 默认使用高斯模糊
+    denoise_method = config.get("method", "nl_means")  # 改为默认使用nl_means
     
-    # 将 0-1 浮点数临时缩放到 0-255 uint8，以便 OpenCV 函数处理
-    # 大多数 OpenCV 滤波函数针对 uint8/uint16 优化
+    # 获取噪声估计信息进行自适应调整
+    estimated_noise = config.get("estimated_noise_level", 0.03)
+    
+    # 将 0-1 浮点数临时缩放到 0-255 uint8
     rgb_8bit = (rgb * 255.0).astype(np.uint8)
+    denoised_rgb_8bit = np.copy(rgb_8bit)
 
-    denoised_rgb_8bit = np.copy(rgb_8bit) # 初始化去噪后的图像
-
-    if denoise_method == "gaussian":
+    if denoise_method == "nl_means":
+        # 基于噪声水平自适应调整参数
+        if estimated_noise > 0.05:  # 高噪声
+            h_param = config.get("h_param", 12)
+            template_ws = 7
+            search_ws = 21
+        elif estimated_noise > 0.02:  # 中等噪声
+            h_param = config.get("h_param", 8)
+            template_ws = 7
+            search_ws = 21
+        else:  # 低噪声
+            h_param = config.get("h_param", 5)
+            template_ws = 5
+            search_ws = 15
+        
+        h_color_param = config.get("h_color_param", h_param)
+        
+        denoised_rgb_8bit = cv2.fastNlMeansDenoisingColored(
+            rgb_8bit, None, h_param, h_color_param, template_ws, search_ws
+        )
+        print(f"应用自适应去噪 (非局部均值), 噪声水平: {estimated_noise:.4f}, h: {h_param}")
+        
+    elif denoise_method == "gaussian":
         # 高斯模糊
         kernel_size = config.get("kernel_size", 5) # 模糊核大小，必须是奇数
         sigma_x = config.get("sigma_x", 0)         # X 方向标准差，0 表示根据核大小计算
